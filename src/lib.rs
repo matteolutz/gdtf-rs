@@ -49,26 +49,23 @@ pub use self::validation::*;
 /// [Description] value. Resources can be read through the associated [ResourceMap], based on the
 /// names provided in the description.
 #[derive(Debug)]
-pub struct GdtfFile {
+pub struct GdtfFile<R: Read + Seek + 'static> {
     /// Describes the GDTF file and all fixture types in the file.
     ///
     /// This is parsed from the `description.xml` file in the GDTF file.
     pub description: Description,
 
     /// Provides access to reading resource files in the GDTF file.
-    pub resources: ResourceMap,
+    pub resources: ResourceMap<R>,
 }
 
-impl GdtfFile {
+impl<R: Read + Seek + 'static> GdtfFile<R> {
     /// Reads a GDTF file.
     ///
     /// This will immediately parse the description in the file.
     ///
     /// On error a [GdtfError] will be produced.
-    pub fn new<R>(reader: R) -> GdtfResult<Self>
-    where
-        R: Read + Seek + 'static,
-    {
+    pub fn new(reader: R) -> GdtfResult<Self> {
         let mut archive = ZipArchive::new(reader)?;
 
         let description_file = archive.by_name("description.xml")?;

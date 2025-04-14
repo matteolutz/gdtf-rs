@@ -40,10 +40,10 @@ impl Wheel {
     }
 
     /// Performs validation checks on the object.
-    pub fn validate(
+    pub fn validate<R: std::io::Read + 'static>(
         &self,
         parent_fixture_type: &FixtureType,
-        resource_map: &mut ResourceMap,
+        resource_map: &mut ResourceMap<R>,
         result: &mut ValidationResult,
     ) {
         if self.name.is_none() {
@@ -144,10 +144,10 @@ impl WheelSlot {
     }
 
     /// Performs validation checks on the object.
-    pub fn validate(
+    pub fn validate<R: std::io::Read + 'static>(
         &self,
         parent_fixture_type: &FixtureType,
-        resource_map: &mut ResourceMap,
+        resource_map: &mut ResourceMap<R>,
         result: &mut ValidationResult,
     ) {
         if self.name.is_none() {

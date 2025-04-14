@@ -15,14 +15,14 @@ use zip::ZipArchive;
 /// Each resource is accessed by a name, which is usually provided by the GDTF file description.
 /// Most resources can be provided in several formats, or with several alternatives. The desired
 /// format and alternative is specified when accessing the resource.
-pub struct ResourceMap {
-    archive: Box<dyn AnyZipArchive>,
+pub struct ResourceMap<R: Read> {
+    archive: Box<dyn AnyZipArchive<R>>,
 }
 
-impl ResourceMap {
+impl<R: Read + 'static> ResourceMap<R> {
     pub(crate) fn new<A>(archive: A) -> Self
     where
-        A: AnyZipArchive,
+        A: AnyZipArchive<R>,
     {
         ResourceMap {
             archive: Box::new(archive),
@@ -30,7 +30,7 @@ impl ResourceMap {
     }
 
     /// Opens a resource file contained in the GDTF file for reading.
-    pub fn read_resource(&mut self, path: &str) -> GdtfResult<Resource> {
+    pub fn read_resource(&mut self, path: &str) -> GdtfResult<Resource<R>> {
         match self.archive.by_name(path) {
             Ok(file) => Ok(Resource::new(file)),
             Err(ZipError::FileNotFound) => Err(GdtfError::ResourceNotFound),
@@ -50,7 +50,7 @@ impl ResourceMap {
         &mut self,
         name: &str,
         format: FtThumbnailFormat,
-    ) -> GdtfResult<Resource> {
+    ) -> GdtfResult<Resource<R>> {
         self.read_resource(&format!("{name}.{}", format.extension()))
     }
 
@@ -63,7 +63,7 @@ impl ResourceMap {
     ///  - Maximum resolution of picture: 1024x1024
     ///  - Recommended resolution of gobo: 256x256
     ///  - Recommended resolution of animation wheel: 256x256
-    pub fn read_wheel_media(&mut self, name: &str) -> GdtfResult<Resource> {
+    pub fn read_wheel_media(&mut self, name: &str) -> GdtfResult<Resource<R>> {
         self.read_resource(&format!("wheels/{name}.png"))
     }
 
@@ -89,7 +89,7 @@ impl ResourceMap {
     ///  - Align the viewbox to the top left of the device.
     ///
     /// To read 3D (3DS or GLB) model files, see [read_model_mesh](Self::read_model_mesh).
-    pub fn read_model_symbol(&mut self, name: &str, view: Model2View) -> GdtfResult<Resource> {
+    pub fn read_model_symbol(&mut self, name: &str, view: Model2View) -> GdtfResult<Resource<R>> {
         self.read_resource(&format!("models/{}/{name}.svg", view.folder()))
     }
 
@@ -124,7 +124,7 @@ impl ResourceMap {
         name: &str,
         format: Model3Format,
         detail: Model3Detail,
-    ) -> GdtfResult<Resource> {
+    ) -> GdtfResult<Resource<R>> {
         self.read_resource(&format!(
             "models/{}{}/{name}.{}",
             format.folder(),
@@ -134,21 +134,21 @@ impl ResourceMap {
     }
 }
 
-impl Debug for ResourceMap {
+impl<R: Read> Debug for ResourceMap<R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ResourceMap").finish()
     }
 }
 
-pub(crate) trait AnyZipArchive: 'static {
-    fn by_name(&mut self, path: &str) -> ZipResult<ZipFile>;
+pub(crate) trait AnyZipArchive<R: Read>: 'static {
+    fn by_name(&mut self, path: &str) -> ZipResult<ZipFile<R>>;
 }
 
-impl<R> AnyZipArchive for ZipArchive<R>
+impl<R> AnyZipArchive<R> for ZipArchive<R>
 where
     R: Read + Seek + 'static,
 {
-    fn by_name(&mut self, path: &str) -> ZipResult<ZipFile> {
+    fn by_name(&mut self, path: &str) -> ZipResult<ZipFile<R>> {
         self.by_name(path)
     }
 }
@@ -157,12 +157,12 @@ where
 ///
 /// Resources contain binary data which is exposed as a stream through the [Read] trait. How to
 /// interpret the data depends on the type of resource.
-pub struct Resource<'a> {
-    archive_file: ZipFile<'a>,
+pub struct Resource<'a, R: Read> {
+    archive_file: ZipFile<'a, R>,
 }
 
-impl<'a> Resource<'a> {
-    pub(crate) fn new(archive_file: ZipFile<'a>) -> Self {
+impl<'a, R: Read> Resource<'a, R> {
+    pub(crate) fn new(archive_file: ZipFile<'a, R>) -> Self {
         Resource { archive_file }
     }
 
@@ -172,7 +172,7 @@ impl<'a> Resource<'a> {
     }
 }
 
-impl<'a> Debug for Resource<'a> {
+impl<'a, R: Read> Debug for Resource<'a, R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Resource")
             .field("archive_file", &self.archive_file.name())
@@ -180,7 +180,7 @@ impl<'a> Debug for Resource<'a> {
     }
 }
 
-impl<'a> Read for Resource<'a> {
+impl<'a, R: Read> Read for Resource<'a, R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.archive_file.read(buf)
     }

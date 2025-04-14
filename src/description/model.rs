@@ -111,7 +111,11 @@ pub struct Model {
 
 impl Model {
     /// Performs validation checks on the object.
-    pub fn validate(&self, resource_map: &mut ResourceMap, result: &mut ValidationResult) {
+    pub fn validate<R: std::io::Read + 'static>(
+        &self,
+        resource_map: &mut ResourceMap<R>,
+        result: &mut ValidationResult,
+    ) {
         if self.name.is_none() {
             result.errors.push(ValidationError::new(
                 ValidationObject::Model,
